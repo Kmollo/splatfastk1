@@ -1,0 +1,10 @@
+{
+  "schema": "splatforge.project.v1",
+  "source": "examples/input.mp4",
+  "quality": "balanced",
+  "matcher": "sequential",
+  "outputs": {
+    "gaussian_splat_ply": "splat/scene.ply",
+    "blender_file": "blender/scene.blend"
+  }
+}

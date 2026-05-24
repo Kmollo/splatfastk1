@@ -1,0 +1,336 @@
+/* SplatfastK1 Desktop - clean B&W theme */
+
+QMainWindow, QWidget {
+    background: #ffffff;
+    color: #000000;
+    font-family: "Segoe UI", -apple-system, sans-serif;
+    font-size: 14px;
+}
+
+/* In-app notification banner ("Training finished in background") */
+QFrame#Banner {
+    background: #1a1a1a;
+    border-bottom: 1px solid #000000;
+}
+QLabel#BannerText {
+    color: #ffffff;
+    font-size: 14px;
+    background: transparent;
+}
+QPushButton#BannerView {
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+QPushButton#BannerView:hover { background: #e8e8e8; }
+QPushButton#BannerDismiss {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    font-size: 16px;
+    padding: 0;
+}
+QPushButton#BannerDismiss:hover { color: #aaaaaa; }
+
+/* Headers — explicit min-height so descenders (g, y, p) don't get clipped
+   when the QVBoxLayout above them is dense */
+QLabel#H1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #000000;
+    min-height: 36px;
+    padding-bottom: 2px;
+}
+QLabel#H2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #000000;
+    min-height: 24px;
+}
+QLabel#Lede {
+    font-size: 15px;
+    color: #6b6b6b;
+}
+QLabel#Hint {
+    font-size: 13px;
+    color: #6b6b6b;
+}
+QLabel#Status {
+    font-size: 13px;
+    color: #6b6b6b;
+}
+
+/* Cards / panels */
+QFrame#Card {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 0px;
+}
+
+/* Drop zone */
+QFrame#DropZone {
+    background: #f6f6f6;
+    border: 2px dashed #cccccc;
+    border-radius: 10px;
+}
+QFrame#DropZoneActive {
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 10px;
+}
+/* Make drop zone children transparent so the parent bg shows through */
+QFrame#DropZone QLabel, QFrame#DropZoneActive QLabel {
+    background: transparent;
+}
+
+/* Primary button (black background, white text)
+   min-height is critical — without it, QVBoxLayouts with many children
+   can compress buttons so far that the text disappears (literally clipped). */
+QPushButton#Primary {
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 24px;
+    font-size: 16px;
+    font-weight: 700;
+    min-height: 24px;
+}
+QPushButton#Primary:hover {
+    background: #1a1a1a;
+}
+QPushButton#Primary:disabled {
+    background: #bbbbbb;
+}
+
+/* Secondary button (white background, black text/border) */
+QPushButton#Secondary {
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #000000;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 20px;
+}
+QPushButton#Secondary:hover {
+    background: #f6f6f6;
+}
+
+/* Subtle button (just text, no border) */
+QPushButton#Subtle {
+    background: transparent;
+    color: #6b6b6b;
+    border: none;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 16px;
+}
+QPushButton#Subtle:hover {
+    color: #000000;
+}
+
+/* Slider */
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #e5e5e5;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    background: #000000;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+QSlider::sub-page:horizontal {
+    background: #000000;
+    border-radius: 2px;
+}
+
+/* Progress bar — thin pill */
+QProgressBar {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 4px;
+    max-height: 8px;
+    min-height: 8px;
+    text-align: center;
+}
+QProgressBar::chunk {
+    background: #000000;
+    border-radius: 4px;
+}
+
+/* Status callout — green pill for "All set" messages on the Setup page */
+QLabel#SuccessCallout {
+    background: #f1faf1;
+    border: 1px solid #1f7a1f;
+    color: #1f7a1f;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+}
+
+/* Radio / segmented (mode toggle) */
+QRadioButton {
+    color: #6b6b6b;
+    font-size: 14px;
+    spacing: 8px;
+    padding: 6px 0;
+}
+QRadioButton:checked {
+    color: #000000;
+    font-weight: 600;
+}
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+}
+QRadioButton::indicator:unchecked {
+    border: 1.5px solid #bbbbbb;
+    border-radius: 9px;
+    background: #ffffff;
+    width: 16px;
+    height: 16px;
+}
+QRadioButton::indicator:checked {
+    border: 1.5px solid #000000;
+    border-radius: 9px;
+    background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,
+        stop:0 #000000, stop:0.45 #000000, stop:0.5 #ffffff, stop:1 #ffffff);
+    width: 16px;
+    height: 16px;
+}
+QRadioButton::indicator:disabled {
+    border: 1.5px solid #e5e5e5;
+    background: #f6f6f6;
+}
+
+/* Tag badge for status */
+QLabel#BadgeOk {
+    background: #f1faf1;
+    border: 1px solid #1f7a1f;
+    color: #1f7a1f;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QLabel#BadgeBad {
+    background: #fdf2f2;
+    border: 1px solid #c00000;
+    color: #c00000;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QLabel#BadgeMuted {
+    background: #f6f6f6;
+    border: 1px solid #e5e5e5;
+    color: #6b6b6b;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Step list */
+QLabel#StepDone {
+    color: #000000;
+    font-weight: 600;
+}
+QLabel#StepActive {
+    color: #000000;
+    font-weight: 700;
+}
+QLabel#StepPending {
+    color: #bbbbbb;
+}
+
+/* Plain text edit (log) */
+QPlainTextEdit#Log {
+    background: #f6f6f6;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: "Consolas", "SF Mono", monospace;
+    font-size: 12px;
+    color: #000000;
+}
+
+/* ---------- Sidebar ---------- */
+QWidget#Sidebar {
+    background: #fafafa;
+}
+QFrame#VDivider {
+    background: #000000;
+    border: none;
+}
+QPushButton#NavItem {
+    background: transparent;
+    border: none;
+    color: #6b6b6b;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 8px;
+}
+QPushButton#NavItem:hover {
+    background: #f0f0f0;
+    color: #000000;
+}
+QPushButton#NavItem:checked {
+    background: #000000;
+    color: #ffffff;
+    font-weight: 600;
+}
+QLabel#Version {
+    color: #bbbbbb;
+    font-size: 11px;
+}
+
+/* ---------- Settings + Projects pages ---------- */
+QLabel#SectionTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b6b6b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+QFrame#Rule {
+    color: #e5e5e5;
+    background: #e5e5e5;
+    max-height: 1px;
+}
+QLabel#TestResult {
+    font-size: 13px;
+    padding: 4px 0;
+}
+QLineEdit {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #000000;
+    font-size: 14px;
+}
+QLineEdit:focus { border-color: #000000; }
+
+/* Project list row */
+QFrame#ProjectRow {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+}
+QFrame#ProjectRow:hover {
+    background: #fafafa;
+    border-color: #000000;
+}

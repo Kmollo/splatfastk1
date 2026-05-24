@@ -1,0 +1,48 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+outputs/
+ui-workspace/
+references/
+tools/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# AI-assistant artifacts (Claude Code, Cursor, etc.) — never push these
+.claude/
+.cursor/
+.aider*
+.continue/
+*.swp
+.DS_Store
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Secrets — defense in depth. Real secrets live in Windows Credential Manager,
+# but if anyone ever drops a .env in the repo, don't push it.
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Plans / scratch dirs from development
+outputsvalidation-plan/
+plans/
+
+# Bundled Blender auto-import script (regenerated each launch)
+desktop/outputs/_blender_autoimport.py
+
+# Rust / Brush build cache
+target/

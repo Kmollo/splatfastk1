@@ -1,0 +1,30 @@
+# SplatfastK1 — Brush Gaussian-splat trainer for Replicate
+# Builds a Linux container with the official Brush binary.
+# Source: https://github.com/ArthurBrussee/brush/releases
+
+build:
+  gpu: true
+  cuda: "12.1"
+  python_version: "3.11"
+  system_packages:
+    - "wget"
+    - "ca-certificates"
+    - "xz-utils"
+    - "libgl1"
+    - "libglib2.0-0"
+    - "libvulkan1"
+  python_packages:
+    - "numpy==1.26.4"
+
+  run:
+    # Pin to a specific Brush release for reproducibility
+    - command: |
+        mkdir -p /opt/brush && cd /opt/brush \
+          && wget -q https://github.com/ArthurBrussee/brush/releases/download/v0.3.0/brush-app-x86_64-unknown-linux-gnu.tar.xz \
+          && tar xJf brush-app-x86_64-unknown-linux-gnu.tar.xz \
+          && rm brush-app-x86_64-unknown-linux-gnu.tar.xz \
+          && ln -sf /opt/brush/brush-app /opt/brush/brush_app \
+          && chmod +x /opt/brush/brush-app \
+          && ls -la /opt/brush
+
+predict: "predict.py:Predictor"
