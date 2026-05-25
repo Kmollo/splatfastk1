@@ -3,7 +3,7 @@ REM ============================================================
 REM  SplatfastK1 launcher — double-click this file to start.
 REM
 REM  First time you run it:
-REM    1. Verifies Python 3.11+ is installed (opens download page if not).
+REM    1. Verifies Python 3.10+ is installed (opens download page if not).
 REM    2. Installs the app's Python dependencies (PyQt6, keyring, etc.).
 REM    3. Creates Start Menu + Desktop shortcuts so you can find the app
 REM       via Windows search from now on.
@@ -22,7 +22,7 @@ if errorlevel 1 (
     where /q python.exe
     if errorlevel 1 (
         echo.
-        echo SplatfastK1 needs Python 3.11 or newer.
+        echo SplatfastK1 needs Python 3.10 or newer.
         echo Opening the download page in your browser...
         echo.
         echo IMPORTANT: When installing Python, check the
@@ -34,11 +34,11 @@ if errorlevel 1 (
     )
 )
 
-REM --- Verify Python version (>= 3.11) ---
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"
+REM --- Verify Python version (>= 3.10, matching pyproject.toml requires-python) ---
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"
 if errorlevel 1 (
     echo.
-    echo Your Python is too old. SplatfastK1 needs Python 3.11 or newer.
+    echo Your Python is too old. SplatfastK1 needs Python 3.10 or newer.
     echo Opening the download page...
     start https://www.python.org/downloads/
     pause
