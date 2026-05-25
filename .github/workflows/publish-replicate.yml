@@ -26,8 +26,15 @@ jobs:
           df -h
 
       - name: Install cog
+        # Pinned to a specific cog release for supply-chain hardening.
+        # Using "releases/latest" would auto-pull whatever Replicate publishes,
+        # so a compromised cog release would silently land in CI. Bump this
+        # version manually after vetting the changelog at
+        # https://github.com/replicate/cog/releases
+        env:
+          COG_VERSION: "v0.13.7"
         run: |
-          sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/latest/download/cog_$(uname -s)_$(uname -m)"
+          sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/download/${COG_VERSION}/cog_$(uname -s)_$(uname -m)"
           sudo chmod +x /usr/local/bin/cog
           cog --version
 

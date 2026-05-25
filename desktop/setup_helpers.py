@@ -173,6 +173,34 @@ def _download_with_progress(url: str, dest: Path, progress_cb: ProgressCb,
                     progress_cb(50, f"{label} — {mb:.1f} MB so far")
 
 
+def _safe_extract(zf: zipfile.ZipFile, dest: Path) -> None:
+    """Extract a zip with zip-slip protection.
+
+    A malicious zip can contain entries like ``../../etc/passwd`` or absolute
+    paths. Python's plain ``zf.extractall()`` happily writes outside ``dest``
+    on those. We validate each entry's resolved path stays under ``dest`` and
+    skip anything that escapes. Mirrors the guard in
+    ``replicate_model/predict.py``.
+
+    This matters even though we download from official Brush + BlendSplat
+    release URLs over HTTPS: if either upstream repo is ever compromised, or
+    a corporate MITM strips HTTPS, this is our second line of defense.
+    """
+    dest = dest.resolve()
+    dest.mkdir(parents=True, exist_ok=True)
+    for member in zf.infolist():
+        name = member.filename.replace("\\", "/")
+        # Block absolute paths and any traversal segment
+        if name.startswith("/") or ".." in name.split("/"):
+            continue
+        target = (dest / name).resolve()
+        try:
+            target.relative_to(dest)
+        except ValueError:
+            continue
+        zf.extract(member, str(dest))
+
+
 def install_brush(progress_cb: ProgressCb) -> Tuple[bool, str]:
     """Download + extract the Brush Windows binary."""
     if BRUSH_BINARY.exists():
@@ -183,7 +211,7 @@ def install_brush(progress_cb: ProgressCb) -> Tuple[bool, str]:
         _download_with_progress(BRUSH_RELEASE_URL, tmp_zip, progress_cb, "Brush")
         progress_cb(95, "Extracting Brush...")
         with zipfile.ZipFile(tmp_zip, "r") as zf:
-            zf.extractall(BRUSH_BINARY.parent)
+            _safe_extract(zf, BRUSH_BINARY.parent)
         # Brush zip may put the exe at different paths depending on release.
         # Find any .exe in the extract folder and rename to brush_app_windows.exe
         if not BRUSH_BINARY.exists():
@@ -202,9 +230,9 @@ def install_brush(progress_cb: ProgressCb) -> Tuple[bool, str]:
 def install_blendsplat(progress_cb: ProgressCb) -> Tuple[bool, str]:
     """Download + extract the BlendSplat library to Documents/BlendSplat-Library/.
 
-    Note: BlendSplat is a Blender asset library distributed via a community
-    GitHub mirror. If the download URL is unreachable, fall back to opening
-    the manual install instructions in the user's browser.
+    Source: pinned Codeberg release. Extraction uses zip-slip-safe path
+    validation so even a compromised upstream zip can't write outside the
+    install directory.
     """
     if BLENDSPLAT_CORE.exists():
         return True, "BlendSplat already installed"
@@ -216,7 +244,7 @@ def install_blendsplat(progress_cb: ProgressCb) -> Tuple[bool, str]:
                                 "BlendSplat")
         progress_cb(95, "Extracting BlendSplat...")
         with zipfile.ZipFile(tmp_zip, "r") as zf:
-            zf.extractall(BLENDSPLAT_DIR)
+            _safe_extract(zf, BLENDSPLAT_DIR)
         tmp_zip.unlink(missing_ok=True)
         if BLENDSPLAT_CORE.exists():
             return True, "BlendSplat installed"
