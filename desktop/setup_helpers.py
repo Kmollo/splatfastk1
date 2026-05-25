@@ -50,6 +50,24 @@ BLENDSPLAT_DOWNLOAD_URL = (
     "blendsplat-core-v0.5.1.zip"
 )
 
+# COLMAP — official 4.0.4 Windows build (no-CUDA, 111 MB).
+# We use no-CUDA so it works on every machine without needing the CUDA
+# runtime installed separately. COLMAP runs all three steps we need
+# (feature_extractor, sequential_matcher, mapper) without CUDA — just
+# slower for feature matching on huge image sets. For our 22-90 frame
+# workflows that doesn't matter.
+#
+# Verified: commit 5b76f53 from this release is byte-identical to the
+# locally-bundled COLMAP that has been tested with our pipeline. The
+# version string reads "4.1.0.dev0" because they tagged 4.0.4 from a
+# main-branch commit that was already labeled as "next-version dev".
+COLMAP_DOWNLOAD_URL = (
+    "https://github.com/colmap/colmap/releases/download/4.0.4/"
+    "colmap-x64-windows-nocuda.zip"
+)
+COLMAP_LOCAL_DIR = SPLATFORGE_ROOT / "tools" / "colmap"
+COLMAP_LOCAL_BAT = COLMAP_LOCAL_DIR / "COLMAP.bat"
+
 
 # ---------------------------------------------------------------------------
 # Status enum (using strings — keeps it simple, easy to display)
@@ -254,27 +272,41 @@ def install_blendsplat(progress_cb: ProgressCb) -> Tuple[bool, str]:
 
 
 def install_colmap(progress_cb: ProgressCb) -> Tuple[bool, str]:
-    """Install COLMAP via winget. Falls back to opening the download page."""
+    """Download + extract the official COLMAP 4.0.4 Windows build to tools/colmap/.
+
+    Originally used `winget install Colmap.Colmap` but that package doesn't
+    exist in the winget repo (we'd silently get "No package found matching
+    input criteria"). The official COLMAP releases ship pre-built Windows
+    zips; we just grab one of those.
+    """
     if check_colmap()[0] == STATUS_OK:
         return True, "COLMAP already installed"
-    progress_cb(0, "Installing COLMAP via winget...")
+    progress_cb(0, "Downloading COLMAP 4.0.4 (no-CUDA, ~111 MB)...")
+    COLMAP_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_zip = COLMAP_LOCAL_DIR.parent / "_colmap_download.zip"
     try:
-        # Try winget first. -e for exact match, --accept-package-agreements
-        # for unattended install.
-        result = subprocess.run(
-            ["winget", "install", "-e", "--id", "Colmap.Colmap",
-             "--accept-package-agreements", "--accept-source-agreements"],
-            capture_output=True, text=True, timeout=300,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        if result.returncode == 0 or "already installed" in (result.stdout + result.stderr).lower():
-            progress_cb(100, "COLMAP installed")
-            return True, "COLMAP installed via winget"
-        return False, f"winget failed: {result.stderr[:200]}"
-    except FileNotFoundError:
-        return False, "winget not available. Install COLMAP manually from colmap.github.io"
+        _download_with_progress(COLMAP_DOWNLOAD_URL, tmp_zip, progress_cb, "COLMAP")
+        progress_cb(95, "Extracting COLMAP...")
+        with zipfile.ZipFile(tmp_zip, "r") as zf:
+            _safe_extract(zf, COLMAP_LOCAL_DIR)
+        # The COLMAP release zip has the .bat at its root. Verify it landed
+        # where the pipeline expects (tools/colmap/COLMAP.bat).
+        tmp_zip.unlink(missing_ok=True)
+        if COLMAP_LOCAL_BAT.exists():
+            return True, f"COLMAP installed at {COLMAP_LOCAL_DIR}"
+        # If the zip wraps everything in a sub-folder, look one level deeper.
+        for inner in COLMAP_LOCAL_DIR.iterdir():
+            inner_bat = inner / "COLMAP.bat"
+            if inner.is_dir() and inner_bat.exists():
+                # Flatten: move everything from inner/ up into COLMAP_LOCAL_DIR
+                for child in inner.iterdir():
+                    shutil.move(str(child), str(COLMAP_LOCAL_DIR / child.name))
+                inner.rmdir()
+                if COLMAP_LOCAL_BAT.exists():
+                    return True, f"COLMAP installed at {COLMAP_LOCAL_DIR}"
+        return False, "COLMAP zip extracted but COLMAP.bat not found at expected path"
     except Exception as e:
-        return False, f"COLMAP install failed: {e}"
+        return False, f"COLMAP download failed: {e}"
 
 
 # ---------------------------------------------------------------------------
