@@ -73,40 +73,41 @@ echo Dependencies installed.
 
 :create_shortcuts
 REM --- Create Start Menu + Desktop shortcuts so the app is findable ---
-REM This runs every launch but is a no-op if the shortcut already exists.
-REM Without this, users who clone the repo can only launch the app by
-REM navigating to the folder and double-clicking the .bat. Adding a Start
-REM Menu entry means typing "splat" in Windows search finds it.
-set "SHORTCUT_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
-set "SHORTCUT_FILE=%SHORTCUT_DIR%\SplatfastK1.lnk"
-set "DESKTOP_SHORTCUT=%USERPROFILE%\Desktop\SplatfastK1.lnk"
+REM
+REM Critical detail: on Windows 10/11 with OneDrive sign-in (the default for
+REM most users), the Desktop folder is REDIRECTED to %USERPROFILE%\OneDrive\
+REM Desktop, NOT %USERPROFILE%\Desktop. Same can apply to Start Menu in
+REM enterprise / roaming-profile setups.
+REM
+REM Trying to write the shortcut to the wrong path silently fails with a
+REM DirectoryNotFoundException — meaning the user clones the repo, runs the
+REM launcher, and gets NO Windows-search entry, no Desktop icon, looks broken.
+REM
+REM Fix: do the whole thing in PowerShell where we have access to
+REM [Environment]::GetFolderPath() which returns the real OS path for these
+REM special folders, OneDrive-redirected or not.
 set "ICON_FILE=%~dp0desktop\icons\splatforge.ico"
 set "TARGET=%~dp0Start_SplatfastK1.bat"
+set "WORKDIR=%~dp0"
 
-if not exist "%SHORTCUT_FILE%" (
-    echo Adding SplatfastK1 to Start Menu...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$w = New-Object -ComObject WScript.Shell;" ^
-        "$s = $w.CreateShortcut('%SHORTCUT_FILE%');" ^
-        "$s.TargetPath = '%TARGET%';" ^
-        "$s.WorkingDirectory = '%~dp0';" ^
-        "$s.IconLocation = '%ICON_FILE%';" ^
-        "$s.Description = 'SplatfastK1 - turn video into 3D Gaussian splat';" ^
-        "$s.WindowStyle = 7;" ^
-        "$s.Save()" 2>nul
-)
-
-if not exist "%DESKTOP_SHORTCUT%" (
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$w = New-Object -ComObject WScript.Shell;" ^
-        "$s = $w.CreateShortcut('%DESKTOP_SHORTCUT%');" ^
-        "$s.TargetPath = '%TARGET%';" ^
-        "$s.WorkingDirectory = '%~dp0';" ^
-        "$s.IconLocation = '%ICON_FILE%';" ^
-        "$s.Description = 'SplatfastK1 - turn video into 3D Gaussian splat';" ^
-        "$s.WindowStyle = 7;" ^
-        "$s.Save()" 2>nul
-)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$smDir = [Environment]::GetFolderPath('Programs');" ^
+  "$desktopDir = [Environment]::GetFolderPath('Desktop');" ^
+  "$smLnk = Join-Path $smDir 'SplatfastK1.lnk';" ^
+  "$dLnk = Join-Path $desktopDir 'SplatfastK1.lnk';" ^
+  "$ws = New-Object -ComObject WScript.Shell;" ^
+  "function Make($path) {" ^
+  "  if (Test-Path $path) { return };" ^
+  "  $s = $ws.CreateShortcut($path);" ^
+  "  $s.TargetPath = '%TARGET%';" ^
+  "  $s.WorkingDirectory = '%WORKDIR%';" ^
+  "  $s.IconLocation = '%ICON_FILE%';" ^
+  "  $s.Description = 'SplatfastK1 - turn video into 3D Gaussian splat';" ^
+  "  $s.WindowStyle = 7;" ^
+  "  $s.Save();" ^
+  "}" ^
+  "Make $smLnk;" ^
+  "Make $dLnk" 2>nul
 
 :launch
 REM --- Launch the app ---
