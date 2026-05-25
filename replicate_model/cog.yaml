@@ -6,6 +6,14 @@ build:
   gpu: true
   cuda: "12.1"
   python_version: "3.11"
+  # NOTE: Brush uses Vulkan via wgpu, NOT CUDA. We need:
+  #   - libvulkan1: the Vulkan loader
+  #   - vulkan-tools + mesa-vulkan-drivers: a Vulkan ICD ("driver") so the
+  #     loader can actually find a GPU.
+  #   - libegl1: required by wgpu for EGL surface creation
+  #   On Replicate's NVIDIA-driver-equipped hosts the real ICD is mounted at
+  #   runtime via nvidia-container-toolkit; we just have to drop in the
+  #   nvidia_icd.json manifest (see the second `run:` line below).
   system_packages:
     - "wget"
     - "ca-certificates"
@@ -13,18 +21,21 @@ build:
     - "libgl1"
     - "libglib2.0-0"
     - "libvulkan1"
+    - "vulkan-tools"
+    - "mesa-vulkan-drivers"
+    - "libegl1"
   python_packages:
     - "numpy==1.26.4"
 
+  # Each list item below is ONE Docker RUN layer. cog rejects multi-line
+  # block-scalars inside a list item, so we keep each step as a single
+  # &&-chained line. Keep it that way — multi-line breaks the build.
   run:
-    # Pin to a specific Brush release for reproducibility
-    - command: |
-        mkdir -p /opt/brush && cd /opt/brush \
-          && wget -q https://github.com/ArthurBrussee/brush/releases/download/v0.3.0/brush-app-x86_64-unknown-linux-gnu.tar.xz \
-          && tar xJf brush-app-x86_64-unknown-linux-gnu.tar.xz \
-          && rm brush-app-x86_64-unknown-linux-gnu.tar.xz \
-          && ln -sf /opt/brush/brush-app /opt/brush/brush_app \
-          && chmod +x /opt/brush/brush-app \
-          && ls -la /opt/brush
+    # Pin to a specific Brush release for reproducibility.
+    - "mkdir -p /opt/brush && cd /opt/brush && wget -q https://github.com/ArthurBrussee/brush/releases/download/v0.3.0/brush-app-x86_64-unknown-linux-gnu.tar.xz && tar xJf brush-app-x86_64-unknown-linux-gnu.tar.xz --strip-components=1 && rm brush-app-x86_64-unknown-linux-gnu.tar.xz && chmod +x /opt/brush/brush_app && ls -la /opt/brush"
+    # Install an NVIDIA Vulkan ICD manifest. nvidia-container-toolkit mounts
+    # libGLX_nvidia.so at runtime; this manifest tells the Vulkan loader to
+    # use it. Without this, wgpu/Brush can't find the GPU and hangs.
+    - "mkdir -p /usr/share/vulkan/icd.d && printf '%s\\n' '{' '    \"file_format_version\": \"1.0.0\",' '    \"ICD\": {' '        \"library_path\": \"libGLX_nvidia.so.0\",' '        \"api_version\": \"1.3.0\"' '    }' '}' > /usr/share/vulkan/icd.d/nvidia_icd.json && cat /usr/share/vulkan/icd.d/nvidia_icd.json"
 
 predict: "predict.py:Predictor"
