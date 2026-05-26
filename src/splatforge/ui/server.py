@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-import cgi
+# NOTE: we used to use `cgi.FieldStorage` for multipart upload parsing, but
+# Python 3.13 removed the `cgi` module (per PEP 594). We hand-roll a tiny
+# multipart parser below so this works on Python 3.10 through 3.13+ with
+# stdlib-only deps.
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import IO, BinaryIO
 from urllib.parse import urlparse
 
 from splatforge.doctor import collect_diagnostics
@@ -116,27 +121,20 @@ class SplatfastK1Handler(BaseHTTPRequestHandler):
         self.send_json(asdict(job), status=HTTPStatus.CREATED)
 
     def create_job_from_upload(self) -> Job:
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type"),
-            },
-        )
-        file_item = form["video"] if "video" in form else None
-        if file_item is None or not file_item.filename:
+        form = _parse_multipart(self.rfile, self.headers.get("Content-Type", ""))
+        video_field = form.get("video")
+        if video_field is None or not isinstance(video_field, _UploadedFile) or not video_field.filename:
             raise ValueError("Upload a video file.")
 
-        original_name = Path(file_item.filename).name
+        original_name = Path(video_field.filename).name
         suffix = Path(original_name).suffix.lower()
         if suffix not in VIDEO_EXTENSIONS:
             raise ValueError("Use a video file: mp4, mov, mkv, avi, m4v, or webm.")
 
-        quality = get_form_value(form, "quality", "balanced")
-        matcher = get_form_value(form, "matcher", "sequential")
-        backend = get_form_value(form, "backend", "brush")
-        dry_run = get_form_value(form, "dry_run", "false") == "true"
+        quality = form.get("quality") or "balanced"
+        matcher = form.get("matcher") or "sequential"
+        backend = form.get("backend") or "brush"
+        dry_run = (form.get("dry_run") or "false") == "true"
         if quality not in {"fast", "balanced", "high"}:
             raise ValueError("Invalid quality preset.")
         if matcher not in {"sequential", "exhaustive"}:
@@ -146,8 +144,7 @@ class SplatfastK1Handler(BaseHTTPRequestHandler):
 
         job_id = uuid.uuid4().hex[:12]
         upload_path = UPLOAD_DIR / f"{job_id}_{original_name}"
-        with upload_path.open("wb") as handle:
-            shutil.copyfileobj(file_item.file, handle)
+        upload_path.write_bytes(video_field.content)
 
         output_path = OUTPUT_DIR / f"{Path(original_name).stem}_{job_id}"
         return Job(
@@ -184,11 +181,72 @@ class SplatfastK1Handler(BaseHTTPRequestHandler):
         return
 
 
-def get_form_value(form: cgi.FieldStorage, key: str, default: str) -> str:
-    if key not in form:
-        return default
-    value = form[key].value
-    return value if isinstance(value, str) else default
+# ---------------------------------------------------------------------------
+# Minimal multipart/form-data parser — stdlib-only replacement for the
+# `cgi` module which was removed in Python 3.13 (PEP 594).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _UploadedFile:
+    filename: str
+    content: bytes
+
+
+def _parse_multipart(stream: BinaryIO, content_type: str) -> dict[str, object]:
+    """Parse a multipart/form-data request body into a dict.
+
+    Returns a dict where the value is either:
+      - str (for plain form fields)
+      - _UploadedFile(filename, content) for file upload parts
+    Missing keys aren't in the dict. Multiple values for the same key are not
+    supported (matches the old cgi.FieldStorage usage we had — we only ever
+    looked up single values).
+    """
+    # Parse the boundary out of Content-Type.
+    # Example: "multipart/form-data; boundary=----WebKitFormBoundaryAbc123"
+    m = re.search(r"boundary=([^;]+)", content_type)
+    if not m:
+        return {}
+    boundary = m.group(1).strip().strip('"').encode("ascii")
+    delim = b"--" + boundary
+    body = stream.read()  # client-side upload — fine to read whole into memory
+    out: dict[str, object] = {}
+    # Split on the boundary. The first chunk before the first boundary is the
+    # CRLF preamble; the last is "--\r\n". The interesting parts are in between.
+    parts = body.split(delim)
+    for part in parts:
+        # Strip leading CRLF if present
+        if part.startswith(b"\r\n"):
+            part = part[2:]
+        # Trailing "--" marks the end-of-multipart sentinel
+        if part in (b"", b"--", b"--\r\n"):
+            continue
+        # Trim trailing CRLF before the next boundary
+        if part.endswith(b"\r\n"):
+            part = part[:-2]
+        # Split headers from body — separator is CRLFCRLF
+        try:
+            header_blob, content = part.split(b"\r\n\r\n", 1)
+        except ValueError:
+            continue
+        headers: dict[str, str] = {}
+        for line in header_blob.split(b"\r\n"):
+            if b":" in line:
+                key, _, val = line.partition(b":")
+                headers[key.decode("latin-1").strip().lower()] = val.decode("latin-1").strip()
+        disposition = headers.get("content-disposition", "")
+        name_match = re.search(r'name="([^"]*)"', disposition)
+        if not name_match:
+            continue
+        name = name_match.group(1)
+        filename_match = re.search(r'filename="([^"]*)"', disposition)
+        if filename_match:
+            # File upload
+            out[name] = _UploadedFile(filename=filename_match.group(1), content=content)
+        else:
+            # Plain text field
+            out[name] = content.decode("utf-8", errors="replace")
+    return out
 
 
 def run_job(job_id: str) -> None:

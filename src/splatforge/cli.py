@@ -6,7 +6,10 @@ from pathlib import Path
 
 from .doctor import run_doctor
 from .pipeline import CreateOptions, create_project
-from .ui.server import run_ui
+# `from .ui.server import run_ui` is deferred until the `ui` subcommand actually
+# runs — see the dispatcher below. That module imports things that Python 3.13
+# removed (`cgi`), so eager-importing it breaks `splatforge create` / `doctor`
+# on 3.13 even when the user never asks for the web UI.
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +71,9 @@ def main(argv: list[str] | None = None) -> int:
         return run_doctor(as_json=args.json, include_hardware=args.hardware)
 
     if args.command == "ui":
+        # Lazy import so Python 3.13 users can still run `create` / `doctor`
+        # even if the UI module hasn't been updated yet.
+        from .ui.server import run_ui
         return run_ui(host=args.host, port=args.port, open_browser=args.open)
 
     if args.command == "create":
