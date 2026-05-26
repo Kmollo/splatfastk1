@@ -306,18 +306,19 @@ def build_colmap_commands(layout: dict[str, Path], matcher: str) -> list[tuple[s
     glomap = resolve_tool("glomap")
     mapper_label = "GLOMAP reconstruction" if glomap else "COLMAP reconstruction fallback"
     mapper_command = [glomap, "mapper"] if glomap else [colmap, "mapper"]
-    # SiftMatching defaults assume a discrete GPU with plenty of VRAM. On
-    # integrated graphics / low-end NVIDIA / older Intel HD, the matcher
-    # fails with "Not enough GPU memory to match N features" and the whole
-    # pipeline dies because there are no matches for the mapper to use.
+    # COLMAP's default SIFT extraction + matching uses GPU. On integrated
+    # graphics / low-end NVIDIA / older Intel HD, the matcher fails with
+    # "Not enough GPU memory to match N features" and the whole pipeline
+    # dies because there are no matches for the mapper to use.
     #
-    # Force CPU matching with --SiftMatching.use_gpu 0. Slightly slower
-    # (a few seconds for typical 22-90 frame runs), but works on every
-    # machine. The Brush training step is where the real GPU work happens
-    # anyway, not COLMAP matching.
-    sift_cpu_only = [
-        "--SiftMatching.use_gpu", "0",
-    ]
+    # Force CPU for both extraction and matching. The flag names use the
+    # COLMAP 4.x namespaces (FeatureExtraction.* and FeatureMatching.*)
+    # — earlier 3.x called these SiftExtraction.* / SiftMatching.* which
+    # 4.x rejects with "unrecognised option".
+    #
+    # CPU is slower than GPU but only by a few seconds for our typical
+    # 22-90 frame workflows. The real GPU work in our pipeline is in
+    # Brush training, not COLMAP matching.
     return [
         (
             "COLMAP feature extraction",
@@ -332,8 +333,7 @@ def build_colmap_commands(layout: dict[str, Path], matcher: str) -> list[tuple[s
                 "1",
                 "--ImageReader.camera_model",
                 "SIMPLE_RADIAL",
-                # Also force feature extraction to CPU — same VRAM concern
-                "--SiftExtraction.use_gpu", "0",
+                "--FeatureExtraction.use_gpu", "0",
             ],
         ),
         (
@@ -343,7 +343,7 @@ def build_colmap_commands(layout: dict[str, Path], matcher: str) -> list[tuple[s
                 matcher_command,
                 "--database_path",
                 str(layout["database"]),
-                *sift_cpu_only,
+                "--FeatureMatching.use_gpu", "0",
             ],
         ),
         (
