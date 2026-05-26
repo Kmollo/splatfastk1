@@ -45,6 +45,33 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM --- Detect Microsoft Store Python and warn ---
+REM Store Python runs in a sandbox that breaks desktop-app features:
+REM   - Taskbar shows the Python icon instead of ours (AppUserModelID
+REM     ignored)
+REM   - %APPDATA% is sometimes redirected to a per-app sandbox
+REM   - pip can have subtle path resolution issues
+REM The fix is to install from python.org instead.
+python -c "import sys; sys.exit(1 if 'WindowsApps' in sys.executable else 0)"
+if errorlevel 1 (
+    echo.
+    echo ============================================================
+    echo   NOTICE: Microsoft Store Python detected
+    echo ============================================================
+    echo.
+    echo The Python you have installed is from the Microsoft Store.
+    echo Store Python runs in a sandbox that causes some annoyances:
+    echo   - Taskbar shows the Python icon instead of SplatfastK1's
+    echo   - Some advanced features may not work correctly
+    echo.
+    echo For best results, install Python from python.org instead:
+    echo   https://www.python.org/downloads/
+    echo.
+    echo The app WILL still run on Store Python, just with these quirks.
+    echo.
+    pause
+)
+
 REM --- Install Python dependencies if needed ---
 REM We check for a sentinel file so this only runs once on first launch
 REM (or whenever pyproject.toml is newer than the sentinel).
