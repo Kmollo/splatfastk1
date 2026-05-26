@@ -6,7 +6,6 @@ from __future__ import annotations
 # stdlib-only deps.
 import json
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -17,7 +16,7 @@ from dataclasses import asdict, dataclass, field
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import IO, BinaryIO
+from typing import BinaryIO
 from urllib.parse import urlparse
 
 from splatforge.doctor import collect_diagnostics
