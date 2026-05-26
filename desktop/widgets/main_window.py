@@ -107,6 +107,11 @@ class MainWindow(QMainWindow):
         self.project_view = ProjectView()
         self.setup_view = SetupView()
 
+        # Track which page the user came from when entering the project view.
+        # Used by _back_to_start so the Back button returns them to where they
+        # were instead of always defaulting to Home.
+        self._project_came_from: str = PAGE_HOME
+
         self.stack.addWidget(self.start_screen)     # IDX_HOME
         self.stack.addWidget(self.settings_view)    # IDX_SETTINGS
         self.stack.addWidget(self.projects_view)    # IDX_PROJECTS
@@ -151,14 +156,25 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(IDX_ACTIVE_PROJECT)
             self.sidebar.set_active("")
             return
+        # Remember they came from Home so Back returns them here, not Projects.
+        self._project_came_from = PAGE_HOME
         self.project_view.reset()
         self.stack.setCurrentIndex(IDX_ACTIVE_PROJECT)
         # Keep sidebar showing nothing-selected since active-project is unlisted
         self.sidebar.set_active("")
 
     def _back_to_start(self) -> None:
-        self.stack.setCurrentIndex(IDX_HOME)
-        self.sidebar.set_active(PAGE_HOME)
+        """Project view's "← Back" handler — route to wherever the user
+        entered the project from (Home if they clicked 'Start a new project',
+        Projects if they clicked a row in the Projects list).
+        """
+        if self._project_came_from == PAGE_PROJECTS:
+            self.projects_view.refresh()
+            self.stack.setCurrentIndex(IDX_PROJECTS)
+            self.sidebar.set_active(PAGE_PROJECTS)
+        else:
+            self.stack.setCurrentIndex(IDX_HOME)
+            self.sidebar.set_active(PAGE_HOME)
 
     def _on_minimize_to_background(self) -> None:
         """User clicked 'Continue in background'. Worker keeps running.
@@ -181,6 +197,9 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(IDX_ACTIVE_PROJECT)
             self.sidebar.set_active("")
             return
+        # User clicked a row in the Projects list — remember that so Back
+        # returns them to Projects, not Home.
+        self._project_came_from = PAGE_PROJECTS
         self.project_view.load_completed(project_dir)
         self.stack.setCurrentIndex(IDX_ACTIVE_PROJECT)
         # No sidebar item selected — active project is not a nav destination
