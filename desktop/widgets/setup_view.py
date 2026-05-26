@@ -40,6 +40,7 @@ class _InstallWorker(QThread):
 
     def run(self) -> None:
         steps = [
+            ("FFmpeg",             sh.install_ffmpeg,      sh.check_ffmpeg),
             ("Brush binary",       sh.install_brush,       sh.check_brush),
             ("BlendSplat library", sh.install_blendsplat,  sh.check_blendsplat),
             ("COLMAP",             sh.install_colmap,      sh.check_colmap),

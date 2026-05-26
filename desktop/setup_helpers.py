@@ -68,6 +68,17 @@ COLMAP_DOWNLOAD_URL = (
 COLMAP_LOCAL_DIR = SPLATFORGE_ROOT / "tools" / "colmap"
 COLMAP_LOCAL_BAT = COLMAP_LOCAL_DIR / "COLMAP.bat"
 
+# FFmpeg — official Windows build by gyan.dev, distributed via GitHub releases.
+# Pinned to 8.1.1 essentials (104 MB), which has everything we need for video
+# frame extraction (h264/h265/aac decoders) without the full ~240 MB build.
+# Verified at: https://github.com/GyanD/codexffmpeg/releases/tag/8.1.1
+FFMPEG_DOWNLOAD_URL = (
+    "https://github.com/GyanD/codexffmpeg/releases/download/8.1.1/"
+    "ffmpeg-8.1.1-essentials_build.zip"
+)
+FFMPEG_LOCAL_DIR = SPLATFORGE_ROOT / "tools" / "ffmpeg"
+FFMPEG_LOCAL_EXE = FFMPEG_LOCAL_DIR / "bin" / "ffmpeg.exe"
+
 
 # ---------------------------------------------------------------------------
 # Status enum (using strings — keeps it simple, easy to display)
@@ -90,10 +101,15 @@ def check_python() -> Tuple[str, str]:
 
 
 def check_ffmpeg() -> Tuple[str, str]:
+    # First check PATH (user may already have it installed system-wide)
     exe = shutil.which("ffmpeg")
     if exe:
         return STATUS_OK, exe
-    return STATUS_MANUAL, "Not on PATH — install via winget after setup"
+    # Then check our local install at tools/ffmpeg/bin/ffmpeg.exe
+    if FFMPEG_LOCAL_EXE.exists():
+        return STATUS_OK, str(FFMPEG_LOCAL_EXE)
+    # Genuinely missing — needs an auto-install
+    return STATUS_MISSING, "Not installed"
 
 
 def check_colmap() -> Tuple[str, str]:
@@ -152,7 +168,8 @@ def all_required_ok() -> bool:
     dependencies (Blender, Replicate key) don't block the Setup view.
     """
     return (
-        check_brush()[0] == STATUS_OK
+        check_ffmpeg()[0] == STATUS_OK
+        and check_brush()[0] == STATUS_OK
         and check_blendsplat()[0] == STATUS_OK
         and check_colmap()[0] == STATUS_OK
     )
@@ -271,6 +288,42 @@ def install_blendsplat(progress_cb: ProgressCb) -> Tuple[bool, str]:
         return False, f"BlendSplat download failed: {e}. Install manually from BlendSplat repo."
 
 
+def install_ffmpeg(progress_cb: ProgressCb) -> Tuple[bool, str]:
+    """Download + extract FFmpeg 8.1.1 essentials build to tools/ffmpeg/.
+
+    The same publisher (gyan.dev) winget would have given us, just pinned to
+    a specific GitHub release URL for reproducibility.
+    """
+    if check_ffmpeg()[0] == STATUS_OK:
+        return True, "FFmpeg already installed"
+    progress_cb(0, "Downloading FFmpeg 8.1.1 (~104 MB)...")
+    FFMPEG_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_zip = FFMPEG_LOCAL_DIR.parent / "_ffmpeg_download.zip"
+    try:
+        _download_with_progress(FFMPEG_DOWNLOAD_URL, tmp_zip, progress_cb, "FFmpeg")
+        progress_cb(95, "Extracting FFmpeg...")
+        # The gyan.dev zip wraps everything in a top-level folder like
+        # "ffmpeg-8.1.1-essentials_build/" — we need to flatten that so
+        # bin/ffmpeg.exe lands at tools/ffmpeg/bin/ffmpeg.exe (where the
+        # tool resolver in src/splatforge/tools.py looks for it).
+        with zipfile.ZipFile(tmp_zip, "r") as zf:
+            _safe_extract(zf, FFMPEG_LOCAL_DIR)
+        tmp_zip.unlink(missing_ok=True)
+        # Flatten if the zip nested everything under a single top folder
+        if not FFMPEG_LOCAL_EXE.exists():
+            inner_dirs = [p for p in FFMPEG_LOCAL_DIR.iterdir() if p.is_dir() and (p / "bin").exists()]
+            if inner_dirs:
+                inner = inner_dirs[0]
+                for child in inner.iterdir():
+                    shutil.move(str(child), str(FFMPEG_LOCAL_DIR / child.name))
+                inner.rmdir()
+        if FFMPEG_LOCAL_EXE.exists():
+            return True, f"FFmpeg installed at {FFMPEG_LOCAL_DIR}"
+        return False, "FFmpeg extracted but ffmpeg.exe not found at expected path"
+    except Exception as e:
+        return False, f"FFmpeg download failed: {e}"
+
+
 def install_colmap(progress_cb: ProgressCb) -> Tuple[bool, str]:
     """Download + extract the official COLMAP 4.0.4 Windows build to tools/colmap/.
 
@@ -317,7 +370,7 @@ def summarize_all() -> list[Tuple[str, str, str, bool]]:
     """Return (name, status, detail, required) for every dep, in display order."""
     return [
         ("Python",             *check_python(),         True),
-        ("FFmpeg",             *check_ffmpeg(),         False),
+        ("FFmpeg",             *check_ffmpeg(),         True),   # now auto-installable
         ("COLMAP",             *check_colmap(),         True),
         ("Brush binary",       *check_brush(),          True),
         ("BlendSplat library", *check_blendsplat(),     True),

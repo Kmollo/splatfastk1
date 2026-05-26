@@ -16,6 +16,7 @@ TOOL_ALIASES = {
 LOCAL_TOOL_DIRS = [
     Path("tools"),
     Path("tools") / "bin",
+    Path("tools") / "ffmpeg" / "bin",
     Path("tools") / "colmap",
     Path("tools") / "colmap" / "bin",
     Path("tools") / "glomap",
