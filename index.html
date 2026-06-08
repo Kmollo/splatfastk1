@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>SplatfastK1 — Live 3D Demo</title>
+  <meta name="description" content="Phone video turned into a 3D scene with SplatfastK1." />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #viewer-root {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 12px 16px;
+      border-radius: 10px;
+      max-width: 90vw;
+      pointer-events: none;
+    }
+
+    #brand {
+      font-weight: 600;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    #tagline {
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 3px;
+    }
+
+    #hint {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    #footer {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 20;
+      font-size: 11px;
+      opacity: 0.55;
+    }
+
+    #footer a {
+      color: #fff;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      background: #000;
+      transition: opacity 0.4s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 18px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #loading-text {
+      font-size: 14px;
+      opacity: 0.85;
+    }
+
+    #loading-sub {
+      font-size: 11px;
+      opacity: 0.5;
+      margin-top: 6px;
+      max-width: 280px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    #error {
+      display: none;
+      position: fixed;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 40;
+      background: #000;
+      padding: 24px;
+      text-align: center;
+    }
+
+    #error.show { display: flex; }
+  </style>
+</head>
+<body>
+
+  <div id="viewer-root"></div>
+
+  <div id="overlay">
+    <div id="brand">SplatfastK1</div>
+    <div id="tagline">Phone video &rarr; 3D scene</div>
+    <div id="hint">Drag to orbit &middot; Scroll/pinch to zoom &middot; Right-drag to pan</div>
+  </div>
+
+  <div id="footer">
+    Built by Kaleb Whybrew &middot;
+    <a href="https://github.com/Kmollo/splatfastk1" target="_blank" rel="noopener">github.com/Kmollo/splatfastk1</a>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading 3D scene...</div>
+    <div id="loading-sub">First load downloads the scene file (~135MB). On slow connections this can take a minute.</div>
+  </div>
+
+  <div id="error">
+    <div style="font-size: 16px; margin-bottom: 10px;">Couldn't load the scene</div>
+    <div id="error-msg" style="font-size: 12px; opacity: 0.7; max-width: 360px;"></div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { Viewer } from 'https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.module.js';
+
+    const loadingEl = document.getElementById('loading');
+    const errorEl = document.getElementById('error');
+    const errorMsg = document.getElementById('error-msg');
+
+    function showError(msg) {
+      loadingEl.classList.add('hidden');
+      errorEl.classList.add('show');
+      errorMsg.textContent = msg;
+      console.error(msg);
+    }
+
+    try {
+      const viewer = new Viewer({
+        'rootElement': document.getElementById('viewer-root'),
+        'cameraUp': [0, -1, 0],
+        'initialCameraPosition': [0, 0, -4],
+        'initialCameraLookAt': [0, 0, 0],
+        'sharedMemoryForWorkers': false,
+        'useBuiltInControls': true,
+      });
+
+      viewer.addSplatScene('./scene.ply', {
+        'splatAlphaRemovalThreshold': 5,
+        'showLoadingUI': false,
+        'progressiveLoad': false,
+      })
+      .then(() => {
+        loadingEl.classList.add('hidden');
+        viewer.start();
+      })
+      .catch((err) => {
+        showError((err && err.message) ? err.message : String(err));
+      });
+    } catch (err) {
+      showError((err && err.message) ? err.message : String(err));
+    }
+  </script>
+
+</body>
+</html>
