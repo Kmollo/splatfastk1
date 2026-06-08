@@ -191,10 +191,20 @@
         'initialCameraLookAt': [0, 0, 0],
         'sharedMemoryForWorkers': false,
         'useBuiltInControls': true,
+        // Render at full device pixel ratio so high-DPI displays (retina /
+        // modern phones) get crisp output instead of upscaled blur. Capped at
+        // 2x because anything more murders mobile framerate without visible
+        // improvement.
+        'devicePixelRatio': Math.min(window.devicePixelRatio || 1, 2),
+        // Enable antialiasing on the splat shader — smooths the soft-edge
+        // problem where surfaces look fuzzy at glancing angles.
+        'antialiased': true,
       });
 
       viewer.addSplatScene('./scene.ply', {
-        'splatAlphaRemovalThreshold': 5,
+        // Lower threshold = keep more semi-transparent splats = sharper detail
+        // on textured surfaces (marble, art, walls). 5 was too aggressive.
+        'splatAlphaRemovalThreshold': 1,
         'showLoadingUI': false,
         'progressiveLoad': false,
       })
